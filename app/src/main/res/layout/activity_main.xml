@@ -1,0 +1,56 @@
+<?xml version="1.0" encoding="utf-8"?>
+
+<LinearLayout
+    xmlns:android="http://schemas.android.com/apk/res/android"
+    android:orientation="vertical"
+    android:gravity="center"
+    android:padding="24dp"
+    android:layout_width="match_parent"
+    android:layout_height="match_parent">
+
+    <TextView
+        android:text="STOP BRAINROT"
+        android:textSize="32sp"
+        android:textStyle="bold"
+        android:textColor="@color/white"
+        android:layout_marginBottom="12dp"
+        android:layout_width="wrap_content"
+        android:layout_height="wrap_content"/>
+
+    <TextView
+        android:text="Anti Doomscrolling Ring"
+        android:textSize="18sp"
+        android:layout_marginBottom="32dp"
+        android:layout_width="wrap_content"
+        android:layout_height="wrap_content"/>
+
+    <Button
+        android:id="@+id/permissionBtn"
+        android:text="Grant Usage Access"
+        android:textColor="@color/white"
+        android:layout_width="250dp"
+        android:layout_height="wrap_content"/>
+
+    <Button
+        android:id="@+id/startBtn"
+        android:text="Start Monitoring"
+        android:textColor="@color/white"
+
+        android:layout_width="250dp"
+        android:layout_height="wrap_content"/>
+
+    <Button
+        android:id="@+id/settingsBtn"
+        android:text="Usage Limits"
+        android:textColor="@color/white"
+        android:layout_width="250dp"
+        android:layout_height="wrap_content"/>
+
+    <Button
+        android:id="@+id/bluetoothBtn"
+        android:text="Connect Ring"
+        android:textColor="@color/white"
+        android:layout_width="250dp"
+        android:layout_height="wrap_content"/>
+
+</LinearLayout>
