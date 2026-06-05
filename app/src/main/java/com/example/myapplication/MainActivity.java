@@ -5,6 +5,7 @@ import android.net.Uri;
 import android.os.Build;
 import android.os.Bundle;
 import android.provider.Settings;
+import android.text.TextUtils;
 import android.widget.Button;
 import android.widget.Toast;
 
@@ -15,7 +16,7 @@ public class MainActivity extends AppCompatActivity {
     Button startBtn;
     Button permissionBtn;
     Button settingsBtn;
-    Button bluetoothBtn;
+    Button accessibilityBtn;
 
     @Override
     protected void onCreate(Bundle savedInstanceState) {
@@ -25,12 +26,15 @@ public class MainActivity extends AppCompatActivity {
         startBtn = findViewById(R.id.startBtn);
         permissionBtn = findViewById(R.id.permissionBtn);
         settingsBtn = findViewById(R.id.settingsBtn);
-        bluetoothBtn = findViewById(R.id.bluetoothBtn);
+        accessibilityBtn = findViewById(R.id.bluetoothBtn); // Reusing bluetoothBtn for accessibility for now
 
-        bluetoothBtn.setOnClickListener(v -> {
-            Intent intent = new Intent(MainActivity.this, BluetoothActivity.class);
-            startActivity(intent);
-        });
+        if (accessibilityBtn != null) {
+            accessibilityBtn.setText("Enable Accessibility");
+            accessibilityBtn.setOnClickListener(v -> {
+                Intent intent = new Intent(Settings.ACTION_ACCESSIBILITY_SETTINGS);
+                startActivity(intent);
+            });
+        }
 
         settingsBtn.setOnClickListener(v -> {
             Intent intent = new Intent(MainActivity.this, SettingsActivity.class);
@@ -42,50 +46,68 @@ public class MainActivity extends AppCompatActivity {
             startActivity(intent);
         });
 
-        // Start button now goes through overlay permission check first
-        startBtn.setOnClickListener(v -> checkOverlayPermission());
+        startBtn.setOnClickListener(v -> {
+            if (checkPermissions()) {
+                startMonitoringService();
+            }
+        });
     }
 
-    private void checkOverlayPermission() {
-        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.M) {
-            if (!Settings.canDrawOverlays(this)) {
-                Intent intent = new Intent(
-                        Settings.ACTION_MANAGE_OVERLAY_PERMISSION,
-                        Uri.parse("package:" + getPackageName())
-                );
-                startActivityForResult(intent, 1234);
-                Toast.makeText(this,
-                        "Please grant 'Display over other apps' permission, then press Start again",
-                        Toast.LENGTH_LONG).show();
-                return;
+    private boolean checkPermissions() {
+        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.M && !Settings.canDrawOverlays(this)) {
+            Intent intent = new Intent(Settings.ACTION_MANAGE_OVERLAY_PERMISSION,
+                    Uri.parse("package:" + getPackageName()));
+            startActivity(intent);
+            Toast.makeText(this, "Please grant Overlay permission", Toast.LENGTH_SHORT).show();
+            return false;
+        }
+        
+        if (!isAccessibilityServiceEnabled()) {
+            Intent intent = new Intent(Settings.ACTION_ACCESSIBILITY_SETTINGS);
+            startActivity(intent);
+            Toast.makeText(this, "Please enable Accessibility Service", Toast.LENGTH_SHORT).show();
+            return false;
+        }
+        
+        return true;
+    }
+
+    private boolean isAccessibilityServiceEnabled() {
+        int accessibilityEnabled = 0;
+        final String service = getPackageName() + "/" + IntraAccessibilityService.class.getCanonicalName();
+        try {
+            accessibilityEnabled = Settings.Secure.getInt(
+                    getContentResolver(),
+                    android.provider.Settings.Secure.ACCESSIBILITY_ENABLED);
+        } catch (Settings.SettingNotFoundException e) {
+            return false;
+        }
+        TextUtils.SimpleStringSplitter mStringColonSplitter = new TextUtils.SimpleStringSplitter(':');
+
+        if (accessibilityEnabled == 1) {
+            String settingValue = Settings.Secure.getString(
+                    getContentResolver(),
+                    Settings.Secure.ENABLED_ACCESSIBILITY_SERVICES);
+            if (settingValue != null) {
+                mStringColonSplitter.setString(settingValue);
+                while (mStringColonSplitter.hasNext()) {
+                    String accessibilityService = mStringColonSplitter.next();
+                    if (accessibilityService.equalsIgnoreCase(service)) {
+                        return true;
+                    }
+                }
             }
         }
-        // Permission already granted — start service directly
-        startMonitoringService();
+        return false;
     }
 
     private void startMonitoringService() {
         Intent serviceIntent = new Intent(MainActivity.this, AppMonitorService.class);
-        startService(serviceIntent);
-        Toast.makeText(MainActivity.this, "Monitoring Started", Toast.LENGTH_SHORT).show();
-    }
-
-    @Override
-    protected void onActivityResult(int requestCode, int resultCode, Intent data) {
-        super.onActivityResult(requestCode, resultCode, data);
-        // Called after user returns from the overlay permission settings screen
-        if (requestCode == 1234) {
-            if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.M) {
-                if (Settings.canDrawOverlays(this)) {
-                    // Permission was granted — start service
-                    startMonitoringService();
-                } else {
-                    // Still not granted
-                    Toast.makeText(this,
-                            "Overlay permission is required for the warning screen to appear",
-                            Toast.LENGTH_LONG).show();
-                }
-            }
+        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) {
+            startForegroundService(serviceIntent);
+        } else {
+            startService(serviceIntent);
         }
+        Toast.makeText(MainActivity.this, "Monitoring Started", Toast.LENGTH_SHORT).show();
     }
 }

@@ -12,4 +12,5 @@
     <string name="youtube_limit_minutes">YouTube Limit (minutes)</string>
     <string name="save_settings">Save Settings</string>
     <string name="anti_brainrot">Anti-Brainrot</string>
+    <string name="accessibility_service_description">Used to detect Reels vs DMs to help you stay focused.</string>
 </resources>
