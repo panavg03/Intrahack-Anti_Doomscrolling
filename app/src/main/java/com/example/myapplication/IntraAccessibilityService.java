@@ -13,10 +13,12 @@ public class IntraAccessibilityService extends AccessibilityService {
     
     public static final String ACTION_SCREEN_TYPE = "com.example.myapplication.SCREEN_TYPE";
     public static final String EXTRA_SCREEN_TYPE = "screen_type";
+    public static final String EXTRA_IS_SCROLLING = "is_scrolling";
     
     public enum ScreenType {
         INSTAGRAM_REELS,
         INSTAGRAM_DMS,
+        INSTAGRAM_PROFILE,
         OTHER
     }
 
@@ -31,30 +33,37 @@ public class IntraAccessibilityService extends AccessibilityService {
 
         ScreenType currentType = detectInstagramScreen(rootNode);
         
-        // Broadcast the screen type to AppMonitorService
+        // Detect if the user is currently scrolling
+        boolean isScrolling = (event.getEventType() == AccessibilityEvent.TYPE_VIEW_SCROLLED);
+        
+        // Broadcast the screen type and scrolling status to AppMonitorService
         Intent intent = new Intent(ACTION_SCREEN_TYPE);
         intent.putExtra(EXTRA_SCREEN_TYPE, currentType.name());
+        intent.putExtra(EXTRA_IS_SCROLLING, isScrolling);
         sendBroadcast(intent);
         
         rootNode.recycle();
     }
 
     private ScreenType detectInstagramScreen(AccessibilityNodeInfo node) {
-        // BrainRot style detection:
-        // Reels usually have a container for video or specific interaction buttons
-        // DMs usually have a list of messages or a chat input
-        
-        // This is a heuristic approach. Instagram changes IDs often, 
-        // but we can look for specific text or content descriptions.
-        
+        // Reels detection
         if (findNodeByTextOrId(node, "reels_video_container") || 
-            findNodeByTextOrId(node, "Reels")) {
+            findNodeByTextOrId(node, "Reels") ||
+            findNodeByTextOrId(node, "reels_viewer_pager")) {
             return ScreenType.INSTAGRAM_REELS;
         }
         
+        // DM detection
         if (findNodeByTextOrId(node, "Direct") || 
-            findNodeByTextOrId(node, "action_bar_container_external_user")) {
+            findNodeByTextOrId(node, "action_bar_container_external_user") ||
+            findNodeByTextOrId(node, "thread_title")) {
             return ScreenType.INSTAGRAM_DMS;
+        }
+
+        // Profile detection
+        if (findNodeByTextOrId(node, "profile_tab") || 
+            findNodeByTextOrId(node, "self_profile_header_container")) {
+            return ScreenType.INSTAGRAM_PROFILE;
         }
 
         return ScreenType.OTHER;
