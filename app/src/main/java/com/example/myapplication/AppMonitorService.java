@@ -5,6 +5,7 @@ import android.app.NotificationChannel;
 import android.app.NotificationManager;
 import android.app.Service;
 import android.content.Intent;
+import android.content.SharedPreferences;
 import android.os.Build;
 import android.os.Handler;
 import android.os.IBinder;
@@ -20,8 +21,11 @@ public class AppMonitorService extends Service {
     private static final int POLL_INTERVAL_MS = 1000;
     private static final int NOTIFICATION_ID = 1;
 
-    // HARDCODED TO 10 SECONDS FOR DEMO — change later
-    private static final int LIMIT_SECONDS = 60;
+    private int instagramLimit = 60;
+    private int youtubeLimit = 60;
+
+    private int instagramBonusSeconds = 0;
+    private int youtubeBonusSeconds = 0;
 
     private Handler handler;
     private Runnable pollRunnable;
@@ -36,6 +40,18 @@ public class AppMonitorService extends Service {
         super.onCreate();
         Log.d(TAG, "SERVICE CREATED");
         usageTracker = new UsageTracker(this);
+        SharedPreferences prefs =
+                PrefsManager.getPrefs(this);
+
+        instagramLimit =
+                prefs.getInt(
+                        "instagram_limit",
+                        60);
+
+        youtubeLimit =
+                prefs.getInt(
+                        "youtube_limit",
+                        60);
         handler = new Handler(Looper.getMainLooper());
         startForegroundWithNotification();
         startPolling();
@@ -67,34 +83,97 @@ public class AppMonitorService extends Service {
     }
 
     private void checkForegroundApp() {
+        SharedPreferences prefs =
+                PrefsManager.getPrefs(this);
+
+        boolean pendingBonus =
+                prefs.getBoolean(
+                        PrefsManager.BONUS_PENDING,
+                        false
+                );
+
+        if (pendingBonus) {
+
+            String bonusApp =
+                    prefs.getString(
+                            PrefsManager.BONUS_APP,
+                            ""
+                    );
+
+            if ("instagram".equals(bonusApp)) {
+
+                instagramBonusSeconds += 300;
+
+            } else if ("youtube".equals(bonusApp)) {
+
+                youtubeBonusSeconds += 300;
+            }
+
+            warningLaunched = false;
+
+            prefs.edit()
+                    .putBoolean(
+                            PrefsManager.BONUS_PENDING,
+                            false
+                    )
+                    .apply();
+        }
+        int usesLeft =
+                prefs.getInt(
+                        PrefsManager.EMERGENCY_USES,
+                        3
+                );
         String pkg = usageTracker.getForegroundApp();
         Log.d(TAG, "FOREGROUND = " + pkg);
 
         if (pkg == null) return;
 
         if (pkg.equals("com.instagram.android")) {
+
+            if (usesLeft <= 0 &&
+                    instagramSeconds >=
+                            (instagramLimit + instagramBonusSeconds)) {
+
+                warningLaunched = false;
+                launchWarning("instagram");
+                return;
+            }
+
             instagramSeconds++;
-            Log.d(TAG, "Instagram = " + instagramSeconds + "s / limit = " + LIMIT_SECONDS + "s");
-            if (instagramSeconds >= LIMIT_SECONDS && !warningLaunched) {
-                launchWarning();
+            Log.d(TAG, "Instagram = " + instagramSeconds + "s / limit = " + instagramLimit + "s");
+            if (instagramSeconds >=
+                    (instagramLimit + instagramBonusSeconds) && !warningLaunched) {
+                launchWarning("instagram");
             }
 
         } else if (pkg.equals("com.google.android.youtube")) {
-            youtubeSeconds++;
-            Log.d(TAG, "YouTube = " + youtubeSeconds + "s / limit = " + LIMIT_SECONDS + "s");
-            if (youtubeSeconds >= LIMIT_SECONDS && !warningLaunched) {
-                launchWarning();
+
+        if (usesLeft <= 0 &&
+                youtubeSeconds >=
+                        (youtubeLimit + youtubeBonusSeconds)) {
+
+            warningLaunched = false;
+            launchWarning("youtube");
+            return;
+        }
+
+        youtubeSeconds++;
+            Log.d(TAG, "YouTube = " + youtubeSeconds + "s / limit = " + youtubeLimit + "s");
+            if (youtubeSeconds >=
+                    (youtubeLimit + youtubeBonusSeconds) && !warningLaunched) {
+                launchWarning("youtube");
             }
         }
     }
 
-    private void launchWarning() {
+    private void launchWarning(String appName) {
         if (warningLaunched) return;
         warningLaunched = true;
         Log.d(TAG, "*** LIMIT REACHED — FIRING WARNING ***");
 
         // Try activity launch
         Intent intent = new Intent(this, WarningActivity.class);
+        intent.putExtra("app_name", appName);
         intent.addFlags(Intent.FLAG_ACTIVITY_NEW_TASK | Intent.FLAG_ACTIVITY_CLEAR_TOP);
         startActivity(intent);
 
