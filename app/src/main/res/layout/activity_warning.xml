@@ -15,28 +15,13 @@
         android:textColor="#FFFFFF"
         android:textSize="24sp"
         android:textAlignment="center"
-        android:layout_marginBottom="16dp"/>
-
-    <TextView
-        android:id="@+id/emergency_count"
-        android:layout_width="wrap_content"
-        android:layout_height="wrap_content"
-        android:text="Emergency Uses Left: 3"
-        android:textColor="#FFFFFF"
-        android:textSize="18sp"
         android:layout_marginBottom="32dp"/>
-
-    <Button
-        android:id="@+id/emergency_button"
-        android:layout_width="wrap_content"
-        android:layout_height="wrap_content"
-        android:text="+5 Minutes"
-        android:layout_marginBottom="16dp"/>
 
     <Button
         android:id="@+id/dismiss_button"
         android:layout_width="wrap_content"
         android:layout_height="wrap_content"
-        android:text="Close App"/>
+        android:text="I'll take a break"
+        android:textSize="18sp"/>
 
 </LinearLayout>
