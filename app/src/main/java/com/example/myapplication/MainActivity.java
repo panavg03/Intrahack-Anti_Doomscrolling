@@ -11,9 +11,14 @@ import android.widget.Button;
 import android.widget.Toast;
 
 import androidx.appcompat.app.AppCompatActivity;
+import android.Manifest;
+import android.content.pm.PackageManager;
+import androidx.core.app.ActivityCompat;
+import androidx.core.content.ContextCompat;
 
 public class MainActivity extends AppCompatActivity {
 
+    private static final int REQUEST_BLE_PERMS = 101;
     Button startBtn;
     Button permissionBtn;
     Button settingsBtn;
@@ -23,6 +28,17 @@ public class MainActivity extends AppCompatActivity {
     protected void onCreate(Bundle savedInstanceState) {
         super.onCreate(savedInstanceState);
         setContentView(R.layout.activity_main);
+        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.S) {
+            if (ContextCompat.checkSelfPermission(this, Manifest.permission.BLUETOOTH_SCAN)
+                    != PackageManager.PERMISSION_GRANTED) {
+                ActivityCompat.requestPermissions(this,
+                        new String[]{
+                                Manifest.permission.BLUETOOTH_SCAN,
+                                Manifest.permission.BLUETOOTH_CONNECT
+                        },
+                        REQUEST_BLE_PERMS);
+            }
+        }
 
         startBtn = findViewById(R.id.startBtn);
         permissionBtn = findViewById(R.id.permissionBtn);
@@ -110,5 +126,16 @@ public class MainActivity extends AppCompatActivity {
             startService(serviceIntent);
         }
         Toast.makeText(MainActivity.this, "Monitoring Started", Toast.LENGTH_SHORT).show();
+    }
+    @Override
+    public void onRequestPermissionsResult(int requestCode, String[] permissions, int[] grantResults) {
+        super.onRequestPermissionsResult(requestCode, permissions, grantResults);
+        if (requestCode == REQUEST_BLE_PERMS) {
+            if (grantResults.length > 0 && grantResults[0] == PackageManager.PERMISSION_GRANTED) {
+                android.util.Log.i("MainActivity", "Bluetooth permissions granted");
+            } else {
+                android.util.Log.w("MainActivity", "Bluetooth permissions denied");
+            }
+        }
     }
 }

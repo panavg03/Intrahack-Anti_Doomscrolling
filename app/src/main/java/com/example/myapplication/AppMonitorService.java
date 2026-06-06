@@ -23,6 +23,7 @@ import android.view.View;
 import android.view.WindowManager;
 import android.widget.Button;
 import android.widget.TextView;
+import com.example.myapplication.bluetooth.BLEManager;
 
 import androidx.core.app.NotificationCompat;
 
@@ -53,7 +54,9 @@ public class AppMonitorService extends Service {
     private boolean isOverlayShowing = false;
 
     private WindowManager windowManager;
+
     private View overlayView;
+    private BLEManager bleManager;
 
     // Receives updates from IntraAccessibilityService about current screen type
     private final BroadcastReceiver screenTypeReceiver = new BroadcastReceiver() {
@@ -83,6 +86,36 @@ public class AppMonitorService extends Service {
         }
 
         startForegroundWithNotification();
+        // Initialize BLE Manager
+        try {
+            bleManager = new BLEManager(this);
+            bleManager.setCallback(new BLEManager.BLECallback() {
+                @Override
+                public void onConnected() {
+                    Log.i(TAG, "Ring connected");
+                }
+
+                @Override
+                public void onDisconnected() {
+                    Log.i(TAG, "Ring disconnected");
+                }
+
+                @Override
+                public void onAccelDataReceived(short x, short y, short z, long timestamp) {
+                    // Accel data received
+                }
+
+                @Override
+                public void onError(String message) {
+                    Log.e(TAG, "BLE Error: " + message);
+                }
+            });
+
+            bleManager.startScan();
+        } catch (SecurityException e) {
+            Log.w(TAG, "Bluetooth permissions not granted yet");
+        }
+
         startPolling();
     }
 
@@ -230,6 +263,11 @@ public class AppMonitorService extends Service {
         warningLaunched = true;
         Log.d(TAG, "!!! LIMIT TRIGGERED: Firing Warning for " + appName + " !!!");
 
+        if (bleManager != null && bleManager.isDeviceConnected()) {
+            bleManager.sendShockCommand(200, 150);
+            Log.i(TAG, "Shock sent to ring");
+        }
+
         Intent intent = new Intent(this, WarningActivity.class);
         intent.putExtra("app_name", appName);
         intent.addFlags(Intent.FLAG_ACTIVITY_NEW_TASK | Intent.FLAG_ACTIVITY_CLEAR_TOP);
@@ -276,5 +314,9 @@ public class AppMonitorService extends Service {
         unregisterReceiver(screenTypeReceiver);
         if (handler != null) handler.removeCallbacks(pollRunnable);
         hideOverlay();
+        if (bleManager != null) {
+            bleManager.disconnect();
+            }
+        }
     }
-}
+
