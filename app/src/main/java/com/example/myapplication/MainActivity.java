@@ -1,7 +1,6 @@
 package com.example.myapplication;
 
 import android.content.Intent;
-import android.content.SharedPreferences;
 import android.net.Uri;
 import android.os.Build;
 import android.os.Bundle;
@@ -23,35 +22,31 @@ public class MainActivity extends AppCompatActivity {
     Button permissionBtn;
     Button settingsBtn;
     Button accessibilityBtn;
+    Button bluetoothBtn;
+    Button statsBtn;
+    Button logsBtn;
 
     @Override
     protected void onCreate(Bundle savedInstanceState) {
         super.onCreate(savedInstanceState);
         setContentView(R.layout.activity_main);
-        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.S) {
-            if (ContextCompat.checkSelfPermission(this, Manifest.permission.BLUETOOTH_SCAN)
-                    != PackageManager.PERMISSION_GRANTED) {
-                ActivityCompat.requestPermissions(this,
-                        new String[]{
-                                Manifest.permission.BLUETOOTH_SCAN,
-                                Manifest.permission.BLUETOOTH_CONNECT
-                        },
-                        REQUEST_BLE_PERMS);
-            }
-        }
+        
+        LogManager.log(this, "App started");
+
+        checkBluetoothPermissions();
 
         startBtn = findViewById(R.id.startBtn);
         permissionBtn = findViewById(R.id.permissionBtn);
         settingsBtn = findViewById(R.id.settingsBtn);
-        accessibilityBtn = findViewById(R.id.bluetoothBtn); // Reusing bluetoothBtn for accessibility for now
+        accessibilityBtn = findViewById(R.id.accessibilityBtn);
+        bluetoothBtn = findViewById(R.id.bluetoothBtn);
+        statsBtn = findViewById(R.id.statsBtn);
+        logsBtn = findViewById(R.id.logsBtn);
 
-        if (accessibilityBtn != null) {
-            accessibilityBtn.setText("Enable Accessibility");
-            accessibilityBtn.setOnClickListener(v -> {
-                Intent intent = new Intent(Settings.ACTION_ACCESSIBILITY_SETTINGS);
-                startActivity(intent);
-            });
-        }
+        accessibilityBtn.setOnClickListener(v -> {
+            Intent intent = new Intent(Settings.ACTION_ACCESSIBILITY_SETTINGS);
+            startActivity(intent);
+        });
 
         settingsBtn.setOnClickListener(v -> {
             Intent intent = new Intent(MainActivity.this, SettingsActivity.class);
@@ -68,6 +63,45 @@ public class MainActivity extends AppCompatActivity {
                 startMonitoringService();
             }
         });
+
+        bluetoothBtn.setOnClickListener(v -> {
+            Intent intent = new Intent(MainActivity.this, BluetoothActivity.class);
+            startActivity(intent);
+        });
+
+        statsBtn.setOnClickListener(v -> {
+            Intent intent = new Intent(MainActivity.this, UsageStatsActivity.class);
+            startActivity(intent);
+        });
+
+        logsBtn.setOnClickListener(v -> {
+            Intent intent = new Intent(MainActivity.this, LogsActivity.class);
+            startActivity(intent);
+        });
+    }
+
+    private void checkBluetoothPermissions() {
+        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.S) {
+            if (ContextCompat.checkSelfPermission(this, Manifest.permission.BLUETOOTH_SCAN)
+                    != PackageManager.PERMISSION_GRANTED ||
+                ContextCompat.checkSelfPermission(this, Manifest.permission.BLUETOOTH_CONNECT)
+                    != PackageManager.PERMISSION_GRANTED) {
+                ActivityCompat.requestPermissions(this,
+                        new String[]{
+                                Manifest.permission.BLUETOOTH_SCAN,
+                                Manifest.permission.BLUETOOTH_CONNECT,
+                                Manifest.permission.ACCESS_FINE_LOCATION
+                        },
+                        REQUEST_BLE_PERMS);
+            }
+        } else {
+             if (ContextCompat.checkSelfPermission(this, Manifest.permission.ACCESS_FINE_LOCATION)
+                    != PackageManager.PERMISSION_GRANTED) {
+                ActivityCompat.requestPermissions(this,
+                        new String[]{Manifest.permission.ACCESS_FINE_LOCATION},
+                        REQUEST_BLE_PERMS);
+            }
+        }
     }
 
     private boolean checkPermissions() {
@@ -126,15 +160,17 @@ public class MainActivity extends AppCompatActivity {
             startService(serviceIntent);
         }
         Toast.makeText(MainActivity.this, "Monitoring Started", Toast.LENGTH_SHORT).show();
+        LogManager.log(this, "Monitoring service started");
     }
+    
     @Override
     public void onRequestPermissionsResult(int requestCode, String[] permissions, int[] grantResults) {
         super.onRequestPermissionsResult(requestCode, permissions, grantResults);
         if (requestCode == REQUEST_BLE_PERMS) {
             if (grantResults.length > 0 && grantResults[0] == PackageManager.PERMISSION_GRANTED) {
-                android.util.Log.i("MainActivity", "Bluetooth permissions granted");
+                LogManager.log(this, "Bluetooth permissions granted");
             } else {
-                android.util.Log.w("MainActivity", "Bluetooth permissions denied");
+                LogManager.log(this, "Bluetooth permissions denied");
             }
         }
     }

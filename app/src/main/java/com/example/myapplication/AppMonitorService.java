@@ -45,26 +45,29 @@ public class AppMonitorService extends Service {
     private int youtubeSeconds = 0;
     private boolean warningLaunched = false;
 
-    // Use only seconds to avoid confusion
     private int instagramLimitSec = 0;
     private int youtubeLimitSec = 0;
 
     private String currentInstagramScreen = "OTHER";
     private boolean isScrolling = false;
     private boolean isOverlayShowing = false;
+    private String lastDetectedPkg = "";
 
     private WindowManager windowManager;
-
     private View overlayView;
     private BLEManager bleManager;
 
-    // Receives updates from IntraAccessibilityService about current screen type
     private final BroadcastReceiver screenTypeReceiver = new BroadcastReceiver() {
         @Override
         public void onReceive(Context context, Intent intent) {
             if (IntraAccessibilityService.ACTION_SCREEN_TYPE.equals(intent.getAction())) {
+                String oldScreen = currentInstagramScreen;
                 currentInstagramScreen = intent.getStringExtra(IntraAccessibilityService.EXTRA_SCREEN_TYPE);
                 isScrolling = intent.getBooleanExtra(IntraAccessibilityService.EXTRA_IS_SCROLLING, false);
+                
+                if (currentInstagramScreen != null && !currentInstagramScreen.equals(oldScreen)) {
+                    LogManager.log(context, "Accessibility: Section changed to " + currentInstagramScreen);
+                }
             }
         }
     };
@@ -73,10 +76,12 @@ public class AppMonitorService extends Service {
     @Override
     public void onCreate() {
         super.onCreate();
+        LogManager.log(this, "Monitor Service: Initializing");
         usageTracker = new UsageTracker(this);
         handler = new Handler(Looper.getMainLooper());
 
         loadLimits();
+        loadTotalTime();
 
         IntentFilter filter = new IntentFilter(IntraAccessibilityService.ACTION_SCREEN_TYPE);
         if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.TIRAMISU) {
@@ -86,34 +91,30 @@ public class AppMonitorService extends Service {
         }
 
         startForegroundWithNotification();
-        // Initialize BLE Manager
+        
         try {
             bleManager = new BLEManager(this);
             bleManager.setCallback(new BLEManager.BLECallback() {
                 @Override
                 public void onConnected() {
-                    Log.i(TAG, "Ring connected");
+                    LogManager.log(AppMonitorService.this, "BLE: Ring connected");
                 }
 
                 @Override
                 public void onDisconnected() {
-                    Log.i(TAG, "Ring disconnected");
+                    LogManager.log(AppMonitorService.this, "BLE: Ring disconnected");
                 }
 
                 @Override
-                public void onAccelDataReceived(short x, short y, short z, long timestamp) {
-                    // Accel data received
-                }
+                public void onAccelDataReceived(short x, short y, short z, long timestamp) {}
 
                 @Override
                 public void onError(String message) {
-                    Log.e(TAG, "BLE Error: " + message);
+                    LogManager.log(AppMonitorService.this, "BLE Error: " + message);
                 }
             });
-
-            bleManager.startScan();
         } catch (SecurityException e) {
-            Log.w(TAG, "Bluetooth permissions not granted yet");
+            LogManager.log(this, "BLE Error: Permission denied in service");
         }
 
         startPolling();
@@ -121,12 +122,26 @@ public class AppMonitorService extends Service {
 
     private void loadLimits() {
         SharedPreferences prefs = PrefsManager.getPrefs(this);
-        // Consistently convert minutes to seconds for all internal logic
         int instaMin = prefs.getInt("instagram_limit", 60);
         int ytMin = prefs.getInt("youtube_limit", 60);
         instagramLimitSec = instaMin * 60;
         youtubeLimitSec = ytMin * 60;
-        Log.d(TAG, "CONFIG LOADED: IG Limit=" + instagramLimitSec + "s, YT Limit=" + youtubeLimitSec + "s");
+        LogManager.log(this, "Config: IG Limit=" + instagramLimitSec + "s, YT Limit=" + youtubeLimitSec + "s");
+    }
+
+    private void loadTotalTime() {
+        SharedPreferences prefs = PrefsManager.getPrefs(this);
+        instagramSeconds = prefs.getInt(PrefsManager.INSTAGRAM_TOTAL_SECONDS, 0);
+        youtubeSeconds = prefs.getInt(PrefsManager.YOUTUBE_TOTAL_SECONDS, 0);
+        LogManager.log(this, "Cache: Loaded saved usage IG=" + instagramSeconds + "s, YT=" + youtubeSeconds + "s");
+    }
+
+    private void saveTotalTime() {
+        SharedPreferences prefs = PrefsManager.getPrefs(this);
+        prefs.edit()
+                .putInt(PrefsManager.INSTAGRAM_TOTAL_SECONDS, instagramSeconds)
+                .putInt(PrefsManager.YOUTUBE_TOTAL_SECONDS, youtubeSeconds)
+                .apply();
     }
 
     private void startForegroundWithNotification() {
@@ -157,69 +172,78 @@ public class AppMonitorService extends Service {
     private void checkForegroundApp() {
         SharedPreferences prefs = PrefsManager.getPrefs(this);
 
-        // Emergency Bonus Handling
         boolean pendingBonus = prefs.getBoolean(PrefsManager.BONUS_PENDING, false);
         if (pendingBonus) {
             String bonusApp = prefs.getString(PrefsManager.BONUS_APP, "");
             if ("instagram".equals(bonusApp)) {
-                instagramBonusSeconds += 300; // Changed to 30s for testing
+                instagramBonusSeconds += 300;
             } else if ("youtube".equals(bonusApp)) {
-                youtubeBonusSeconds += 300; // Changed to 30s for testing
+                youtubeBonusSeconds += 300;
             }
             warningLaunched = false;
             prefs.edit().putBoolean(PrefsManager.BONUS_PENDING, false).apply();
-            Log.d(TAG, "EMERGENCY GRANTED: 30s bonus to " + bonusApp);
+            LogManager.log(this, "Bonus: 5m extension applied for " + bonusApp);
         }
 
-        int usesLeft = prefs.getInt(PrefsManager.EMERGENCY_USES, 0);
+        int usesLeft = prefs.getInt(PrefsManager.EMERGENCY_USES, 3);
         String pkg = usageTracker.getForegroundApp();
 
         if (pkg == null) return;
 
+        if (!pkg.equals(lastDetectedPkg)) {
+            LogManager.log(this, "Detection: App -> " + pkg);
+            lastDetectedPkg = pkg;
+        }
+
         if (pkg.equals("com.instagram.android")) {
             boolean isOnReels = "INSTAGRAM_REELS".equals(currentInstagramScreen);
             
-            // INFORMATIVE LOGGING
-            String scrollStatus = isScrolling ? " [SCROLLING]" : "";
-            int totalAllowed = instagramLimitSec + instagramBonusSeconds;
-            Log.d(TAG, String.format("IG STATUS: Screen=%s%s | Time=%ds | Limit=%ds (Bonus=%ds)", 
-                    currentInstagramScreen, scrollStatus, instagramSeconds, instagramLimitSec, instagramBonusSeconds));
-
-            // BrainRot Mechanic: Only increment timer on Reels
             if (isOnReels) {
                 instagramSeconds++;
+                saveTotalTime();
+                int totalAllowed = instagramLimitSec + instagramBonusSeconds;
+                
+                if (instagramSeconds % 10 == 0) {
+                    LogManager.log(this, "Status: IG Reels usage " + instagramSeconds + "/" + totalAllowed + "s");
+                }
+
                 if (instagramSeconds >= totalAllowed) {
                     if (usesLeft <= 0 && !isOverlayShowing) {
+                        LogManager.log(this, "Limit: IG Reels BLOCKED");
                         showOverlay("BRAINROT DETECTED!\nNo emergency uses left. STOP SCROLLING.");
                     } else if (!warningLaunched && !isOverlayShowing) {
+                        LogManager.log(this, "Limit: IG Reels warning triggered");
                         launchWarning("instagram");
                     }
                 }
             } else {
-                // Timer is effectively paused on DMs/Profile
                 if (isOverlayShowing) hideOverlay();
             }
 
         } else if (pkg.equals("com.google.android.youtube")) {
             youtubeSeconds++;
+            saveTotalTime();
             int totalAllowed = youtubeLimitSec + youtubeBonusSeconds;
-            Log.d(TAG, String.format("YT STATUS: Time=%ds | Limit=%ds (Bonus=%ds)", 
-                    youtubeSeconds, youtubeLimitSec, youtubeBonusSeconds));
+            
+            if (youtubeSeconds % 10 == 0) {
+                LogManager.log(this, "Status: YouTube usage " + youtubeSeconds + "/" + totalAllowed + "s");
+            }
 
             if (youtubeSeconds >= totalAllowed && !warningLaunched && !isOverlayShowing) {
+                LogManager.log(this, "Limit: YouTube warning triggered");
                 launchWarning("youtube");
             }
         } else {
-            // User left restricted apps
-            if (isOverlayShowing) {
-                // Optionally hide overlay here if desired
+            if (warningLaunched && !pkg.equals(getPackageName()) && !pkg.equals("com.example.myapplication")) {
+                warningLaunched = false;
+                LogManager.log(this, "Monitor: Resetting warning flag (left restricted app)");
             }
         }
     }
 
     private void showOverlay(String messageText) {
         if (!Settings.canDrawOverlays(this)) {
-            Log.e(TAG, "OVERLAY PERMISSION MISSING");
+            LogManager.log(this, "UI Error: Missing Overlay Permission");
             return;
         }
 
@@ -251,7 +275,7 @@ public class AppMonitorService extends Service {
             try {
                 windowManager.addView(overlayView, params);
                 isOverlayShowing = true;
-                Log.d(TAG, "OVERLAY DISPLAYED: " + messageText.replace("\n", " "));
+                LogManager.log(this, "UI: Blocking overlay shown");
             } catch (Exception e) {
                 Log.e(TAG, "Error adding overlay: " + e.getMessage());
             }
@@ -261,11 +285,12 @@ public class AppMonitorService extends Service {
     private void launchWarning(String appName) {
         if (warningLaunched) return;
         warningLaunched = true;
-        Log.d(TAG, "!!! LIMIT TRIGGERED: Firing Warning for " + appName + " !!!");
 
         if (bleManager != null && bleManager.isDeviceConnected()) {
             bleManager.sendShockCommand(200, 150);
-            Log.i(TAG, "Shock sent to ring");
+            LogManager.log(this, "Action: Shock command sent to ring");
+        } else {
+            LogManager.log(this, "Action: No ring connected for shock");
         }
 
         Intent intent = new Intent(this, WarningActivity.class);
@@ -273,10 +298,11 @@ public class AppMonitorService extends Service {
         intent.addFlags(Intent.FLAG_ACTIVITY_NEW_TASK | Intent.FLAG_ACTIVITY_CLEAR_TOP);
         startActivity(intent);
 
-        // Backup Notification
-        NotificationChannel channel = new NotificationChannel(
-                "warn_channel", "Warnings", NotificationManager.IMPORTANCE_HIGH);
-        getSystemService(NotificationManager.class).createNotificationChannel(channel);
+        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) {
+            NotificationChannel channel = new NotificationChannel(
+                    "warn_channel", "Warnings", NotificationManager.IMPORTANCE_HIGH);
+            getSystemService(NotificationManager.class).createNotificationChannel(channel);
+        }
         Notification n = new NotificationCompat.Builder(this, "warn_channel")
                 .setContentTitle("🚨 Time's up!")
                 .setContentText("Stop scrolling " + appName + " and take a break!")
@@ -291,7 +317,7 @@ public class AppMonitorService extends Service {
         if (isOverlayShowing && windowManager != null && overlayView != null) {
             try {
                 windowManager.removeView(overlayView);
-                Log.d(TAG, "OVERLAY REMOVED");
+                LogManager.log(this, "UI: Warning overlay hidden");
             } catch (Exception e) {
                 Log.e(TAG, "Error removing overlay: " + e.getMessage());
             }
@@ -302,6 +328,7 @@ public class AppMonitorService extends Service {
     @Override
     public int onStartCommand(Intent intent, int flags, int startId) {
         loadLimits();
+        LogManager.log(this, "Monitor Service: onStartCommand executed");
         return START_STICKY;
     }
 
@@ -310,13 +337,16 @@ public class AppMonitorService extends Service {
 
     @Override
     public void onDestroy() {
+        LogManager.log(this, "Monitor Service: Stopping");
         super.onDestroy();
-        unregisterReceiver(screenTypeReceiver);
+        try {
+            unregisterReceiver(screenTypeReceiver);
+        } catch (Exception e) {}
+        
         if (handler != null) handler.removeCallbacks(pollRunnable);
         hideOverlay();
         if (bleManager != null) {
             bleManager.disconnect();
-            }
         }
     }
-
+}

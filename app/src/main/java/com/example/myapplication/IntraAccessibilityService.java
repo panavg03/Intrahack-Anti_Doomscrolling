@@ -1,6 +1,7 @@
 package com.example.myapplication;
 
 import android.accessibilityservice.AccessibilityService;
+import android.annotation.SuppressLint;
 import android.content.Intent;
 import android.util.Log;
 import android.view.accessibility.AccessibilityEvent;
@@ -8,6 +9,7 @@ import android.view.accessibility.AccessibilityNodeInfo;
 
 import java.util.List;
 
+@SuppressLint("AccessibilityPolicy")
 public class IntraAccessibilityService extends AccessibilityService {
     private static final String TAG = "INTRAHACK_AS";
     
@@ -36,6 +38,10 @@ public class IntraAccessibilityService extends AccessibilityService {
         // Detect if the user is currently scrolling
         boolean isScrolling = (event.getEventType() == AccessibilityEvent.TYPE_VIEW_SCROLLED);
         
+        if (isScrolling) {
+            LogManager.log(this, "Accessibility: User scrolling on " + currentType.name());
+        }
+
         // Broadcast the screen type and scrolling status to AppMonitorService
         Intent intent = new Intent(ACTION_SCREEN_TYPE);
         intent.putExtra(EXTRA_SCREEN_TYPE, currentType.name());

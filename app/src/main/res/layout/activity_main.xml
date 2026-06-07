@@ -1,56 +1,99 @@
 <?xml version="1.0" encoding="utf-8"?>
-
-<LinearLayout
-    xmlns:android="http://schemas.android.com/apk/res/android"
-    android:orientation="vertical"
-    android:gravity="center"
-    android:padding="24dp"
+<ScrollView xmlns:android="http://schemas.android.com/apk/res/android"
     android:layout_width="match_parent"
-    android:layout_height="match_parent">
+    android:layout_height="match_parent"
+    android:fillViewport="true">
 
-    <TextView
-        android:text="STOP BRAINROT"
-        android:textSize="32sp"
-        android:textStyle="bold"
-        android:textColor="@color/white"
-        android:layout_marginBottom="12dp"
-        android:layout_width="wrap_content"
-        android:layout_height="wrap_content"/>
+    <LinearLayout
+        android:layout_width="match_parent"
+        android:layout_height="wrap_content"
+        android:gravity="center"
+        android:orientation="vertical"
+        android:padding="24dp">
 
-    <TextView
-        android:text="Anti Doomscrolling Ring"
-        android:textSize="18sp"
-        android:layout_marginBottom="32dp"
-        android:layout_width="wrap_content"
-        android:layout_height="wrap_content"/>
+        <TextView
+            android:layout_width="wrap_content"
+            android:layout_height="wrap_content"
+            android:layout_marginBottom="8dp"
+            android:text="STOP BRAINROT"
+            android:textColor="#FF0000"
+            android:textSize="32sp"
+            android:textStyle="bold" />
 
-    <Button
-        android:id="@+id/permissionBtn"
-        android:text="Grant Usage Access"
-        android:textColor="@color/white"
-        android:layout_width="250dp"
-        android:layout_height="wrap_content"/>
+        <TextView
+            android:layout_width="wrap_content"
+            android:layout_height="wrap_content"
+            android:layout_marginBottom="32dp"
+            android:text="Anti Doomscrolling System"
+            android:textSize="18sp" />
 
-    <Button
-        android:id="@+id/startBtn"
-        android:text="Start Monitoring"
-        android:textColor="@color/white"
+        <TextView
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:text="Service Controls"
+            android:textStyle="bold"
+            android:layout_marginBottom="8dp"/>
 
-        android:layout_width="250dp"
-        android:layout_height="wrap_content"/>
+        <Button
+            android:id="@+id/permissionBtn"
+            android:layout_width="250dp"
+            android:layout_height="wrap_content"
+            android:layout_marginBottom="8dp"
+            android:text="Grant Usage Access" />
 
-    <Button
-        android:id="@+id/settingsBtn"
-        android:text="Usage Limits"
-        android:textColor="@color/white"
-        android:layout_width="250dp"
-        android:layout_height="wrap_content"/>
+        <Button
+            android:id="@+id/accessibilityBtn"
+            android:layout_width="250dp"
+            android:layout_height="wrap_content"
+            android:layout_marginBottom="8dp"
+            android:text="Enable Accessibility" />
 
-    <Button
-        android:id="@+id/bluetoothBtn"
-        android:text="Connect Ring"
-        android:textColor="@color/white"
-        android:layout_width="250dp"
-        android:layout_height="wrap_content"/>
+        <Button
+            android:id="@+id/startBtn"
+            android:layout_width="250dp"
+            android:layout_height="wrap_content"
+            android:layout_marginBottom="16dp"
+            android:text="Start Monitoring" />
 
-</LinearLayout>
+        <View
+            android:layout_width="250dp"
+            android:layout_height="1dp"
+            android:background="#CCCCCC"
+            android:layout_marginBottom="16dp"/>
+
+        <TextView
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:text="Features &amp; Stats"
+            android:textStyle="bold"
+            android:layout_marginBottom="8dp"/>
+
+        <Button
+            android:id="@+id/settingsBtn"
+            android:layout_width="250dp"
+            android:layout_height="wrap_content"
+            android:layout_marginBottom="8dp"
+            android:text="Usage Limits" />
+
+        <Button
+            android:id="@+id/statsBtn"
+            android:layout_width="250dp"
+            android:layout_height="wrap_content"
+            android:layout_marginBottom="8dp"
+            android:text="View Usage Stats" />
+
+        <Button
+            android:id="@+id/bluetoothBtn"
+            android:layout_width="250dp"
+            android:layout_height="wrap_content"
+            android:layout_marginBottom="8dp"
+            android:text="Connect Ring (BLE)" />
+
+        <Button
+            android:id="@+id/logsBtn"
+            android:layout_width="250dp"
+            android:layout_height="wrap_content"
+            android:text="View Logs &amp; Errors" />
+
+    </LinearLayout>
+</ScrollView>
