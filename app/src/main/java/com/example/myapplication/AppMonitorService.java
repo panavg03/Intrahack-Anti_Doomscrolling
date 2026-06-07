@@ -129,9 +129,9 @@ public class AppMonitorService extends Service {
         if (pendingBonus) {
             String bonusApp = prefs.getString(PrefsManager.BONUS_APP, "");
             if ("instagram".equals(bonusApp)) {
-                instagramBonusSeconds += 30; // Changed to 30s for testing
+                instagramBonusSeconds += 300; // Changed to 30s for testing
             } else if ("youtube".equals(bonusApp)) {
-                youtubeBonusSeconds += 30; // Changed to 30s for testing
+                youtubeBonusSeconds += 300; // Changed to 30s for testing
             }
             warningLaunched = false;
             prefs.edit().putBoolean(PrefsManager.BONUS_PENDING, false).apply();
